@@ -10,10 +10,11 @@ import Admin from "./pages/Admin";
 import AdminLogin from "./pages/AdminLogin";
 import ManageUsers from "./pages/ManageUsers";
 import ManageProducts from "./pages/ManageProducts";
-import ManageOrders from "./pages/ManageOrders";  
-import Contact from "./pages/Contact"; // ✅ New Contact Page
+import ManageOrders from "./pages/ManageOrders";
+import Contact from "./pages/Contact";
 import Checkout from "./pages/Checkout";
 import MyOrders from "./pages/MyOrders";
+import ProductsView from "./pages/ProductsView";   // ✅ kept from HEAD
 import OrderDetails from "./pages/OrderDetails";
 import { CartProvider } from "./context/CartContext";
 import { Toaster } from "react-hot-toast";
@@ -39,7 +40,7 @@ function ProtectedRoute({ children, adminOnly = false }) {
           if (snap.exists()) {
             setRole(snap.data().role || "user");
           } else {
-            setRole("user"); // default role if not found
+            setRole("user");
           }
         } catch (error) {
           console.error("Error fetching role:", error);
@@ -57,16 +58,14 @@ function ProtectedRoute({ children, adminOnly = false }) {
 
   if (loading) return <div className="p-10 text-center">Loading...</div>;
 
-  // Not logged in
   if (!user) return <Navigate to="/login" />;
 
-  // Admin-only page but user is not admin
   if (adminOnly && role !== "admin") return <Navigate to="/" />;
 
   return children;
 }
 
-// ✅ Wrapper to conditionally hide Navbar on admin pages
+// Hide Navbar on admin pages
 function Layout({ children }) {
   const location = useLocation();
   const hideNavbar = location.pathname.startsWith("/admin");
@@ -86,48 +85,55 @@ function App() {
       <Router>
         <Layout>
           <Routes>
+
             {/* Public Routes */}
             <Route path="/" element={<Home />} />
             <Route path="/products" element={<Products />} />
             <Route path="/product/:id" element={<ProductDetails />} />
             <Route path="/cart" element={<Cart />} />
             <Route path="/login" element={<Login />} />
+
+            {/* From HEAD */}
+            <Route path="/products-view/:orderId" element={<ProductsView />} />
+
             <Route path="/admin-login" element={<AdminLogin />} />
-            <Route path="/admin/users" element={
-              <ProtectedRoute adminOnly>
-                <ManageUsers />
-              </ProtectedRoute>
-            } />
-            <Route path="/admin/products" element={
-              <ProtectedRoute adminOnly>
-                <ManageProducts />
-              </ProtectedRoute>
-            } />
-            <Route path="/admin/orders" element={
-              <ProtectedRoute adminOnly>
-                <ManageOrders />
-              </ProtectedRoute>
-            } />
+
+            {/* Admin-only Routes */}
+            <Route
+              path="/admin/users"
+              element={
+                <ProtectedRoute adminOnly>
+                  <ManageUsers />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/products"
+              element={
+                <ProtectedRoute adminOnly>
+                  <ManageProducts />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/orders"
+              element={
+                <ProtectedRoute adminOnly>
+                  <ManageOrders />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* User Routes */}
             <Route path="/checkout" element={<Checkout />} />
             <Route path="/orders" element={<MyOrders />} />
             <Route path="/order/:id" element={<OrderDetails />} />
 
             {/* Static Pages */}
-            <Route
-              path="/about"
-              element={<h1 className="text-2xl font-bold">About Us Page</h1>}
-            />
-            <Route path="/contact" element={<Contact />} /> {/* ✅ Updated */}
+            <Route path="/about" element={<h1 className="text-2xl font-bold">About Us Page</h1>} />
+            <Route path="/contact" element={<Contact />} />
 
-            {/* Protected Routes (normal users) */}
-            <Route
-              path="/orders"
-              element={
-                <ProtectedRoute>
-                  <h1 className="text-2xl font-bold">My Orders</h1>
-                </ProtectedRoute>
-              }
-            />
+            {/* Normal user protected routes */}
             <Route
               path="/profile"
               element={
@@ -137,7 +143,7 @@ function App() {
               }
             />
 
-            {/* Admin Route */}
+            {/* Admin main page */}
             <Route
               path="/admin"
               element={
@@ -147,15 +153,12 @@ function App() {
               }
             />
 
-            {/* 404 Fallback */}
+            {/* 404 */}
             <Route
               path="*"
-              element={
-                <h1 className="text-2xl font-bold text-center">
-                  404 - Page Not Found
-                </h1>
-              }
+              element={<h1 className="text-2xl font-bold text-center">404 - Page Not Found</h1>}
             />
+
           </Routes>
         </Layout>
       </Router>

@@ -5,11 +5,38 @@ import { doc, getDoc } from "firebase/firestore";
 import toast from "react-hot-toast";
 import { FiUser, FiPhone } from "react-icons/fi";
 
+// UNIVERSAL COLOR LIST WITH HEX
+const allColors = [
+  { name: "Red", hex: "#FF0000" },
+  { name: "Blue", hex: "#0000FF" },
+  { name: "Green", hex: "#008000" },
+  { name: "Yellow", hex: "#FFFF00" },
+  { name: "Black", hex: "#000000" },
+  { name: "White", hex: "#FFFFFF" },
+  { name: "Pink", hex: "#FFC0CB" },
+  { name: "Purple", hex: "#800080" },
+  { name: "Orange", hex: "#FFA500" },
+  { name: "Grey", hex: "#808080" },
+  { name: "Brown", hex: "#8B4513" },
+  { name: "Beige", hex: "#F5F5DC" },
+  { name: "Maroon", hex: "#800000" },
+  { name: "Navy", hex: "#000080" },
+  { name: "Sky Blue", hex: "#87CEEB" },
+  { name: "Lime", hex: "#00FF00" },
+  { name: "Olive", hex: "#808000" },
+];
+
+const getColorHex = (name) =>
+  allColors.find((c) => c.name === name)?.hex || "#ccc";
+
 export default function OrderDetails() {
   const { id } = useParams(); // orderId from URL
   const navigate = useNavigate();
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  // Status steps
+  const steps = ["Pending", "Processing", "Shipped", "Delivered"];
 
   useEffect(() => {
     const fetchOrder = async () => {
@@ -32,6 +59,7 @@ export default function OrderDetails() {
       } catch (err) {
         console.error(err);
         toast.error("Failed to fetch order details.");
+        navigate("/orders");
       } finally {
         setLoading(false);
       }
@@ -50,13 +78,11 @@ export default function OrderDetails() {
       </div>
     );
 
-  // Status steps
-  const steps = ["Pending", "Processing", "Shipped", "Delivered"];
   const currentStep = steps.indexOf(order.status);
 
   return (
     <div className="max-w-5xl px-4 py-10 mx-auto">
-      {/* Back Header */}
+      {/* Back */}
       <div className="flex flex-col items-start justify-between mb-6 md:flex-row md:items-center">
         <h1 className="text-2xl font-bold text-gray-800">
           Order Details:{" "}
@@ -73,24 +99,28 @@ export default function OrderDetails() {
 
       {/* Customer Info */}
       <div className="p-4 mb-6 bg-white shadow-md rounded-xl">
-        <h2 className="mb-3 text-lg font-semibold text-gray-700">Customer Info</h2>
+        <h2 className="mb-3 text-lg font-semibold text-gray-700">
+          Customer Info
+        </h2>
 
         <div className="flex flex-col gap-1 text-gray-700 md:flex-row md:gap-6">
           <p className="flex items-center gap-2">
             <FiUser className="text-gray-500" />
-            <strong>{order.userName || "Unknown User"}</strong>
+            <strong>{order.userName}</strong>
           </p>
 
           <p className="flex items-center gap-2">
             <FiPhone className="text-gray-500" />
-            {order.userPhone || "N/A"}
+            {order.userPhone}
           </p>
         </div>
       </div>
 
       {/* Status Tracker */}
       <div className="p-4 mb-6 bg-white shadow-md rounded-xl">
-        <h2 className="mb-3 text-lg font-semibold text-gray-700">Order Status</h2>
+        <h2 className="mb-3 text-lg font-semibold text-gray-700">
+          Order Status
+        </h2>
 
         <div className="relative flex items-center justify-between">
           {steps.map((step, index) => (
@@ -132,7 +162,9 @@ export default function OrderDetails() {
 
       {/* Order Summary */}
       <div className="p-4 mb-6 bg-white shadow-md rounded-xl">
-        <h2 className="mb-3 text-lg font-semibold text-gray-700">Order Summary</h2>
+        <h2 className="mb-3 text-lg font-semibold text-gray-700">
+          Order Summary
+        </h2>
 
         <div className="grid grid-cols-1 gap-2 text-sm md:grid-cols-2">
           <p>
@@ -185,17 +217,21 @@ export default function OrderDetails() {
 
       {/* Ordered Items */}
       <div className="p-4 bg-white shadow-md rounded-xl">
-        <h2 className="mb-3 text-lg font-semibold text-gray-800">Ordered Items</h2>
+        <h2 className="mb-3 text-lg font-semibold text-gray-800">
+          Ordered Items
+        </h2>
 
         <div className="overflow-x-auto">
           <table className="min-w-full text-sm border border-gray-200 rounded-lg">
             <thead className="bg-gray-100">
               <tr>
-                <th className="p-2 text-left">S.No</th>
-                <th className="p-2 text-left">Product</th>
-                <th className="p-2 text-left">Qty</th>
-                <th className="p-2 text-left">Price</th>
-                <th className="p-2 text-left">Total</th>
+                <th className="p-2">S.No</th>
+                <th className="p-2">Product</th>
+                <th className="p-2">Color</th>
+                <th className="p-2">Size</th>
+                <th className="p-2">Qty</th>
+                <th className="p-2">Price</th>
+                <th className="p-2">Total</th>
               </tr>
             </thead>
 
@@ -204,10 +240,39 @@ export default function OrderDetails() {
                 <tr key={i} className="border-t hover:bg-gray-50">
                   <td className="p-2">{i + 1}</td>
                   <td className="p-2">{item.name}</td>
-                  <td className="p-2">{item.quantity || 1}</td>
+
+                  {/* Color */}
+                  <td className="p-2">
+                    {item.selectedOptions?.color ? (
+                      <div className="flex items-center gap-2">
+                        <span
+                          className="w-5 h-5 border rounded-full"
+                          style={{
+                            backgroundColor: getColorHex(
+                              item.selectedOptions.color
+                            ),
+                            borderColor:
+                              item.selectedOptions.color === "White"
+                                ? "#ccc"
+                                : "transparent",
+                          }}
+                        />
+                        {item.selectedOptions.color}
+                      </div>
+                    ) : (
+                      "-"
+                    )}
+                  </td>
+
+                  {/* Size */}
+                  <td className="p-2">
+                    {item.selectedOptions?.size || "-"}
+                  </td>
+
+                  <td className="p-2">{item.quantity}</td>
                   <td className="p-2">₹{item.price}</td>
                   <td className="p-2">
-                    ₹{item.price * (item.quantity || 1)}
+                    ₹{item.price * item.quantity}
                   </td>
                 </tr>
               ))}

@@ -15,6 +15,30 @@ import {
 } from "firebase/firestore";
 import toast from "react-hot-toast";
 
+// UNIVERSAL COLOR LIST WITH HEX
+const allColors = [
+  { name: "Red", hex: "#FF0000" },
+  { name: "Blue", hex: "#0000FF" },
+  { name: "Green", hex: "#008000" },
+  { name: "Yellow", hex: "#FFFF00" },
+  { name: "Black", hex: "#000000" },
+  { name: "White", hex: "#FFFFFF" },
+  { name: "Pink", hex: "#FFC0CB" },
+  { name: "Purple", hex: "#800080" },
+  { name: "Orange", hex: "#FFA500" },
+  { name: "Grey", hex: "#808080" },
+  { name: "Brown", hex: "#8B4513" },
+  { name: "Beige", hex: "#F5F5DC" },
+  { name: "Maroon", hex: "#800000" },
+  { name: "Navy", hex: "#000080" },
+  { name: "Sky Blue", hex: "#87CEEB" },
+  { name: "Lime", hex: "#00FF00" },
+  { name: "Olive", hex: "#808000" },
+];
+
+const getColorHex = (colorName) =>
+  allColors.find((x) => x.name === colorName)?.hex || "#ccc";
+
 export default function Checkout() {
   const navigate = useNavigate();
   const { cart, clearCart } = useCart();
@@ -69,7 +93,7 @@ export default function Checkout() {
     fetchUserInfo();
   }, [navigate]);
 
-  // Add address
+  // Add new address
   const handleAddAddress = async () => {
     if (!newAddress.trim()) return toast.error("Enter an address.");
     const user = auth.currentUser;
@@ -92,7 +116,7 @@ export default function Checkout() {
     }
   };
 
-  // Create custom order ID
+  // Create Order ID
   const generateOrderId = async (uid, phone) => {
     const ph = phone || "0000000000";
     const now = new Date();
@@ -107,7 +131,7 @@ export default function Checkout() {
     return `PR-${ph}-${dd}${mm}-${count}`;
   };
 
-  // Confirm order
+  // Confirm Order
   const handleConfirmOrder = async () => {
     const user = auth.currentUser;
     if (!user) return toast.error("Please login.");
@@ -151,6 +175,7 @@ export default function Checkout() {
   };
 
   if (loading) return <p className="mt-20 text-center">Loading checkout...</p>;
+
   if (!cartItems.length)
     return (
       <div className="px-4 py-10 text-center text-gray-600">
@@ -251,6 +276,8 @@ export default function Checkout() {
               <tr>
                 <th className="p-2 text-left">S.No</th>
                 <th className="p-2 text-left">Product</th>
+                <th className="p-2 text-left">Color</th>
+                <th className="p-2 text-left">Size</th>
                 <th className="p-2 text-left">Qty</th>
                 <th className="p-2 text-left">Price</th>
                 <th className="p-2 text-left">Total</th>
@@ -262,11 +289,38 @@ export default function Checkout() {
                 <tr key={item.id} className="border-t">
                   <td className="p-2">{i + 1}</td>
                   <td className="p-2">{item.name}</td>
+
+                  {/* COLOR PREVIEW */}
+                  <td className="p-2">
+                    {item.selectedOptions?.color ? (
+                      <div className="flex items-center gap-2">
+                        <span
+                          className="inline-block w-5 h-5 border rounded-full"
+                          style={{
+                            backgroundColor: getColorHex(
+                              item.selectedOptions.color
+                            ),
+                            borderColor:
+                              item.selectedOptions.color === "White"
+                                ? "#ccc"
+                                : "transparent",
+                          }}
+                        ></span>
+                        {item.selectedOptions.color}
+                      </div>
+                    ) : (
+                      "-"
+                    )}
+                  </td>
+
+                  {/* SIZE */}
+                  <td className="p-2">
+                    {item.selectedOptions?.size || "-"}
+                  </td>
+
                   <td className="p-2">{item.quantity || 1}</td>
                   <td className="p-2">₹{item.price}</td>
-                  <td className="p-2">
-                    ₹{item.price * (item.quantity || 1)}
-                  </td>
+                  <td className="p-2">₹{item.price * (item.quantity || 1)}</td>
                 </tr>
               ))}
             </tbody>

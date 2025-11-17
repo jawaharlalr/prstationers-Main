@@ -1,47 +1,55 @@
 // src/pages/ProductDetails.jsx
 import { useLocation, useNavigate } from "react-router-dom";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useCart } from "../context/CartContext";
 import { auth, db } from "../firebase";
 import { doc, setDoc } from "firebase/firestore";
 import { X } from "lucide-react";
 import toast from "react-hot-toast";
 
+// UNIVERSAL COLOR LIST WITH HEX
+const allColors = [
+  { name: "Red", hex: "#FF0000" },
+  { name: "Blue", hex: "#0000FF" },
+  { name: "Green", hex: "#008000" },
+  { name: "Yellow", hex: "#FFFF00" },
+  { name: "Black", hex: "#000000" },
+  { name: "White", hex: "#FFFFFF" },
+  { name: "Pink", hex: "#FFC0CB" },
+  { name: "Purple", hex: "#800080" },
+  { name: "Orange", hex: "#FFA500" },
+  { name: "Grey", hex: "#808080" },
+  { name: "Brown", hex: "#8B4513" },
+  { name: "Beige", hex: "#F5F5DC" },
+  { name: "Maroon", hex: "#800000" },
+  { name: "Navy", hex: "#000080" },
+  { name: "Sky Blue", hex: "#87CEEB" },
+  { name: "Lime", hex: "#00FF00" },
+  { name: "Olive", hex: "#808000" },
+];
+
 export default function ProductDetails() {
   const location = useLocation();
   const navigate = useNavigate();
   const { cart, addToCart } = useCart();
+
   const product = location.state?.product;
 
   const [selectedColor, setSelectedColor] = useState(null);
   const [selectedSize, setSelectedSize] = useState(null);
   const [quantity, setQuantity] = useState(1);
 
-  // FINAL merged values from Products.jsx
-  const colors = product?.colors || [];
-  const sizes = product?.sizes || [];
+  // FIX: useMemo to prevent ESLint dependency warnings
+  const colors = useMemo(() => product?.colors || [], [product]);
+  const sizes = useMemo(() => product?.sizes || [], [product]);
 
+  // Auto-select default when none available
   useEffect(() => {
     if (!product) return;
 
-    // Auto-select when empty
-    if (colors.length === 0) {
-      setSelectedColor("Default");
-    }
-    if (sizes.length === 0) {
-      setSelectedSize("Default");
-    }
-  }, [product]);
-
-  const colorClasses = {
-    Red: "bg-red-500",
-    Blue: "bg-blue-600",
-    Green: "bg-green-500",
-    Yellow: "bg-yellow-400",
-    Black: "bg-black",
-    White: "bg-white border-gray-300",
-    Default: "bg-gray-300",
-  };
+    if (colors.length === 0) setSelectedColor("Default");
+    if (sizes.length === 0) setSelectedSize("Default");
+  }, [product, colors, sizes]);
 
   if (!product) {
     return (
@@ -54,7 +62,6 @@ export default function ProductDetails() {
   const added = !!cart[product.id];
 
   const handleAddToCart = async () => {
-    // Validation
     if (colors.length > 0 && !selectedColor) {
       toast.error("Please select a color.");
       return;
@@ -81,6 +88,7 @@ export default function ProductDetails() {
 
     try {
       const cartRef = doc(db, "users", user.uid, "cart", product.id.toString());
+
       await setDoc(cartRef, {
         productId: product.id,
         name: product.name,
@@ -108,11 +116,8 @@ export default function ProductDetails() {
     }
   };
 
-  const pageWrapperClasses =
-    "relative max-w-5xl px-4 py-10 pb-32 mx-auto min-h-[calc(100vh-80px)]";
-
   return (
-    <div className={pageWrapperClasses}>
+    <div className="relative max-w-5xl px-4 py-10 pb-32 mx-auto min-h-[calc(100vh-80px)]">
       {/* Back Button */}
       <button
         onClick={() => navigate(-1)}
@@ -138,7 +143,9 @@ export default function ProductDetails() {
             {product.name}
           </h1>
 
-          <p className="text-gray-500 capitalize">Category: {product.category}</p>
+          <p className="text-gray-500 capitalize">
+            Category: {product.category}
+          </p>
 
           {product.description && (
             <p className="text-gray-600">{product.description}</p>
@@ -148,21 +155,36 @@ export default function ProductDetails() {
             ₹{product.price}
           </p>
 
-          {/* Colors */}
+          {/* COLOR PREVIEW */}
           {colors.length > 0 && (
             <div className="flex flex-wrap items-center gap-2">
               <span className="font-medium text-gray-700">Color:</span>
 
-              {colors.map((color) => (
-                <button
-                  key={color}
-                  onClick={() => setSelectedColor(color)}
-                  className={`w-8 h-8 rounded-full border-2 ${
-                    selectedColor === color ? "border-black" : "border-gray-300"
-                  } ${colorClasses[color] || "bg-gray-200"}`}
-                  title={color}
-                />
-              ))}
+              {colors.map((color) => {
+                const cObj = allColors.find((x) => x.name === color);
+
+                return (
+                  <button
+                    key={color}
+                    onClick={() => setSelectedColor(color)}
+                    className={`w-9 h-9 rounded-full border-2 transition ${
+                      selectedColor === color
+                        ? "border-black scale-110"
+                        : "border-gray-300"
+                    }`}
+                    style={{
+                      backgroundColor: cObj?.hex || "#ccc",
+                      borderColor:
+                        color === "White"
+                          ? selectedColor === "White"
+                            ? "#000"
+                            : "#ccc"
+                          : undefined,
+                    }}
+                    title={color}
+                  ></button>
+                );
+              })}
             </div>
           )}
 
@@ -194,16 +216,21 @@ export default function ProductDetails() {
               type="number"
               min={1}
               value={quantity}
-              onChange={(e) => setQuantity(parseInt(e.target.value))}
+              onChange={(e) =>
+                setQuantity(Math.max(1, parseInt(e.target.value) || 1))
+              }
               className="w-20 px-2 py-1 text-gray-700 border rounded"
             />
           </div>
 
+          {/* Add to Cart */}
           <button
             onClick={handleAddToCart}
             disabled={added}
             className={`px-4 py-2 rounded-full text-white text-sm md:text-base font-medium transition w-max mt-2 ${
-              added ? "bg-gray-400 cursor-not-allowed" : "bg-[#2563eb] hover:bg-[#1e40af]"
+              added
+                ? "bg-gray-400 cursor-not-allowed"
+                : "bg-[#2563eb] hover:bg-[#1e40af]"
             }`}
           >
             {added ? "Added" : "Add to Cart"}
