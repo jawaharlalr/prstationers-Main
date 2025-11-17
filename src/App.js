@@ -16,6 +16,7 @@ import Checkout from "./pages/Checkout";
 import MyOrders from "./pages/MyOrders";
 import ProductsView from "./pages/ProductsView";   // ✅ kept from HEAD
 import OrderDetails from "./pages/OrderDetails";
+import About from "./pages/About";
 import { CartProvider } from "./context/CartContext";
 import { Toaster } from "react-hot-toast";
 import { auth, db } from "./firebase";
@@ -130,7 +131,7 @@ function App() {
             <Route path="/order/:id" element={<OrderDetails />} />
 
             {/* Static Pages */}
-            <Route path="/about" element={<h1 className="text-2xl font-bold">About Us Page</h1>} />
+            <Route path="/about" element={<About />} />
             <Route path="/contact" element={<Contact />} />
 
             {/* Normal user protected routes */}
