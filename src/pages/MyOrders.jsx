@@ -1,22 +1,14 @@
+// Updated MyOrders component — fully fixed and defensive
+// With updated status handling based on delivery type
+
 import { useEffect, useState } from "react";
 import { auth, db } from "../firebase";
-import {
-  collection,
-  onSnapshot,
-  orderBy,
-  query,
-  setDoc,
-  doc,
-} from "firebase/firestore";
+import { collection, onSnapshot, orderBy, query } from "firebase/firestore";
 import { FiChevronDown, FiChevronUp, FiUser, FiPhone } from "react-icons/fi";
 import toast from "react-hot-toast";
-import OrderDetailsModal from "../pages/OrderDetails";
 import { useNavigate } from "react-router-dom";
 import { generateInvoicePDF } from "../utils/generateInvoicePDF";
 
-/* ============================================================
-   COLOR HELPER
-============================================================ */
 const allColors = [
   { name: "Red", hex: "#FF0000" },
   { name: "Blue", hex: "#0000FF" },
@@ -37,35 +29,35 @@ const allColors = [
   { name: "Olive", hex: "#808000" },
 ];
 
-const getColorHex = (name) =>
-  allColors.find((c) => c.name === name)?.hex || "#ccc";
+const getColorHex = (name) => allColors.find((c) => c.name === name)?.hex || "#ccc";
 
-/* ============================================================
-   PAGE COMPONENT
-============================================================ */
+function formatDate(value) {
+  if (!value) return "—";
+  try {
+    if (typeof value === "object" && typeof value.toDate === "function") {
+      return new Date(value.toDate()).toLocaleString();
+    }
+    if (typeof value === "number") return new Date(value).toLocaleString();
+    const parsed = new Date(value);
+    if (!isNaN(parsed)) return parsed.toLocaleString();
+    return "—";
+  } catch {
+    return "—";
+  }
+}
+
 export default function MyOrders() {
   const [orders, setOrders] = useState([]);
   const [expandedOrder, setExpandedOrder] = useState(null);
   const [loading, setLoading] = useState(true);
-
-  // Order modal
-  const [selectedOrderId, setSelectedOrderId] = useState(null);
-  const [showOrderModal, setShowOrderModal] = useState(false);
-
-  // Invoice modal
-  const [invoiceModal, setInvoiceModal] = useState(false);
-  const [invoiceBlobUrl, setInvoiceBlobUrl] = useState("");
-  const [invoiceLoading, setInvoiceLoading] = useState(false);
-  const [selectedInvoice, setSelectedInvoice] = useState(null);
-
   const navigate = useNavigate();
 
-  /* ============================================================
-     REAL-TIME ORDER FETCH
-  ============================================================ */
   useEffect(() => {
     const user = auth.currentUser;
-    if (!user) return;
+    if (!user) {
+      setLoading(false);
+      return;
+    }
 
     const q = query(
       collection(db, "users", user.uid, "orders"),
@@ -89,68 +81,35 @@ export default function MyOrders() {
     return () => unsubscribe();
   }, []);
 
-  /* ============================================================
-     RE-ORDER
-  ============================================================ */
-  const handleReOrder = async (order) => {
-    const user = auth.currentUser;
-    if (!user) return toast.error("Please login!");
-
-    const confirmReorder = window.confirm("Re-order these items?");
-    if (!confirmReorder) return;
-
+  const handleDownloadInvoice = async (order) => {
     try {
-      for (const item of order.items) {
-        const cartId = `${item.id}_${Date.now()}`;
-
-        await setDoc(doc(db, "users", user.uid, "cart", cartId), {
-          productId: item.id || "",
-          name: item.name || "",
-          price: item.price || 0,
-          image: item.image ?? "",
-          category: item.category || "",
-          selectedOptions: item.selectedOptions || {},
-          quantity: item.quantity || 1,
-          addedAt: new Date(),
-        });
-      }
-
-      toast.success("Items added to cart");
-      navigate("/cart");
-    } catch (err) {
-      console.error(err);
-      toast.error("Re-order failed");
-    }
-  };
-
-  /* ============================================================
-     VIEW INVOICE
-  ============================================================ */
-  const handleViewInvoice = async (order) => {
-    try {
-      setInvoiceLoading(true);
-      setSelectedInvoice(order);
-
       const pdfBlob = await generateInvoicePDF(order, true);
-      const blobUrl = URL.createObjectURL(pdfBlob);
+      const url = URL.createObjectURL(pdfBlob);
 
-      setInvoiceBlobUrl(blobUrl);
-      setInvoiceModal(true);
-      setInvoiceLoading(false);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `Invoice_${order.orderId || "order"}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+
+      setTimeout(() => {
+        document.body.removeChild(a);
+        try {
+          URL.revokeObjectURL(url);
+        } catch {}
+      }, 1500);
+
+      toast.success("Download started");
     } catch (err) {
       console.error(err);
-      toast.error("Invoice failed to load");
-      setInvoiceLoading(false);
+      toast.error("Failed to download invoice");
     }
   };
 
-  /* ============================================================
-     RENDER
-  ============================================================ */
   if (loading)
     return <p className="mt-20 text-center text-gray-600">Loading orders...</p>;
 
-  if (!orders.length)
+  if (!orders || orders.length === 0)
     return (
       <div className="px-4 py-10 mx-auto text-center text-gray-600">
         You haven’t placed any orders yet.
@@ -171,53 +130,47 @@ export default function MyOrders() {
       <div className="flex flex-col gap-6">
         {orders.map((order, index) => {
           const isExpanded = expandedOrder === order.id;
+          const items = Array.isArray(order.items) ? order.items : [];
+          const totalItems = items.length;
+          const totalQty = items.reduce((sum, it) => sum + (Number(it?.quantity) || 0), 0);
+
+          const canDownload =
+            order.status === "Delivered" || order.status === "Picked Up";
 
           return (
-            <div key={order.id} className="p-4 bg-white shadow-md rounded-xl">
-              {/* HEADER */}
+            <div key={order.id || index} className="p-4 bg-white shadow-md rounded-xl">
               <div
-                onClick={() =>
-                  setExpandedOrder(isExpanded ? null : order.id)
-                }
+                onClick={() => setExpandedOrder(isExpanded ? null : order.id)}
                 className="flex items-center justify-between cursor-pointer"
               >
                 <div className="flex flex-col">
                   <span className="text-sm text-gray-500">S.No: {index + 1}</span>
-                  <span className="font-semibold text-gray-800">
-                    {order.orderId}
-                  </span>
-                  <span className="text-sm text-gray-500">
-                    {order.createdAt?.toDate
-                      ? new Date(order.createdAt.toDate()).toLocaleString()
-                      : "—"}
-                  </span>
+                  <span className="font-semibold text-gray-800">{order.orderId || "—"}</span>
+                  <span className="text-sm text-gray-500">{formatDate(order.createdAt)}</span>
                 </div>
 
-                <button className="text-gray-600 hover:text-gray-800">
-                  {isExpanded ? (
-                    <FiChevronUp className="text-xl" />
-                  ) : (
-                    <FiChevronDown className="text-xl" />
-                  )}
+                <button
+                  type="button"
+                  aria-expanded={isExpanded}
+                  className="text-gray-600 hover:text-gray-800"
+                >
+                  {isExpanded ? <FiChevronUp className="text-xl" /> : <FiChevronDown className="text-xl" />}
                 </button>
               </div>
 
-              {/* EXPANDED */}
               {isExpanded && (
                 <div className="pt-3 mt-4 border-t border-gray-200">
-                  {/* USER INFO */}
                   <div className="flex flex-col gap-1 mb-3 text-sm text-gray-700 md:flex-row md:gap-6">
-                    <p className="flex items-center gap-2">
-                      <FiUser /> {order.userName}
-                    </p>
-                    <p className="flex items-center gap-2">
-                      <FiPhone /> {order.userPhone}
-                    </p>
+                    <p className="flex items-center gap-2"><FiUser /> {order.userName || "—"}</p>
+                    <p className="flex items-center gap-2"><FiPhone /> {order.userPhone || "—"}</p>
                   </div>
 
-                  {/* ITEMS TABLE */}
+                  <p className="mb-3 text-sm text-gray-700">
+                    <strong>Total Items:</strong> {totalItems} &nbsp;|&nbsp; <strong>Total Qty:</strong> {totalQty}
+                  </p>
+
                   <div className="overflow-x-auto">
-                    <table className="min-w-full text-sm border border-gray-200 rounded-lg">
+                    <table className="min-w-full text-sm text-center border border-gray-200 rounded-lg">
                       <thead className="bg-gray-100">
                         <tr>
                           <th className="p-2">S.No</th>
@@ -231,21 +184,16 @@ export default function MyOrders() {
                       </thead>
 
                       <tbody>
-                        {order.items.map((item, i) => (
-                          <tr key={i} className="border-t">
-                            <td className="p-2">{i + 1}</td>
-                            <td className="p-2">{item.name}</td>
-
-                            <td className="p-2">
+                        {items.map((item, i) => (
+                          <tr key={item.id || i} className="border-t">
+                            <td className="p-2 text-center">{i + 1}</td>
+                            <td className="p-2 text-center">{item.name || "—"}</td>
+                            <td className="p-2 text-center">
                               {item.selectedOptions?.color ? (
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center justify-center gap-2">
                                   <span
                                     className="inline-block w-5 h-5 border rounded-full"
-                                    style={{
-                                      backgroundColor: getColorHex(
-                                        item.selectedOptions.color
-                                      ),
-                                    }}
+                                    style={{ backgroundColor: getColorHex(item.selectedOptions.color) }}
                                   ></span>
                                   {item.selectedOptions.color}
                                 </div>
@@ -253,123 +201,41 @@ export default function MyOrders() {
                                 "-"
                               )}
                             </td>
-
-                            <td className="p-2">
-                              {item.selectedOptions?.size || "-"}
-                            </td>
-
-                            <td className="p-2">{item.quantity}</td>
-                            <td className="p-2">₹{item.price}</td>
-                            <td className="p-2">
-                              ₹{item.price * item.quantity}
-                            </td>
+                            <td className="p-2 text-center">{item.selectedOptions?.size || "-"}</td>
+                            <td className="p-2 text-center">{item.quantity ?? 0}</td>
+                            <td className="p-2 text-center">₹{item.price ?? 0}</td>
+                            <td className="p-2 text-center">₹{(Number(item.price) || 0) * (Number(item.quantity) || 0)}</td>
                           </tr>
                         ))}
                       </tbody>
                     </table>
                   </div>
 
-                  {/* FOOTER */}
+                  {/* ✔ NEW — Updated status text based on delivery type */}
                   <div className="flex flex-col justify-between gap-2 mt-4 text-sm text-gray-700 md:flex-row">
-                    <p>
-                      <strong>Delivery:</strong> {order.deliveryType}
-                    </p>
-                    <p>
-                      <strong>Total:</strong>{" "}
-                      <span className="font-semibold text-green-600">
-                        ₹{order.totalPrice}
-                      </span>
-                    </p>
-                    <p>
-                      <strong>Status:</strong> {order.status}
-                    </p>
+                    <p><strong>Delivery:</strong> {order.deliveryType || "—"}</p>
+                    <p><strong>Total:</strong> <span className="font-semibold text-green-600">₹{order.totalPrice ?? 0}</span></p>
+                    <p><strong>Status:</strong> {order.status || "—"}</p>
                   </div>
 
-                  {/* ACTIONS */}
-                  <div className="flex justify-end gap-3 mt-4">
-                    {order.status === "Delivered" && (
+                  {/* ✔ NEW — Invoice available only for Delivered / Picked Up */}
+                  {canDownload && (
+                    <div className="flex justify-end mt-4">
                       <button
-                        onClick={() => handleReOrder(order)}
-                        className="px-4 py-1 text-sm text-white bg-green-600 rounded-full hover:bg-green-700"
-                      >
-                        Re-Order
-                      </button>
-                    )}
-
-                    {order.invoiceAvailable && (
-                      <button
-                        onClick={() => handleViewInvoice(order)}
+                        type="button"
+                        onClick={() => handleDownloadInvoice(order)}
                         className="px-4 py-1 text-sm text-white bg-purple-600 rounded-full hover:bg-purple-700"
                       >
-                        View Invoice
+                        Download Bill
                       </button>
-                    )}
-
-                    <button
-                      onClick={() => {
-                        setSelectedOrderId(order.id);
-                        setShowOrderModal(true);
-                      }}
-                      className="px-4 py-1 text-sm text-white bg-blue-600 rounded-full hover:bg-blue-700"
-                    >
-                      View Details
-                    </button>
-                  </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
           );
         })}
       </div>
-
-      {/* ORDER DETAILS MODAL */}
-      {showOrderModal && (
-        <OrderDetailsModal
-          orderId={selectedOrderId}
-          onClose={() => setShowOrderModal(false)}
-        />
-      )}
-
-      {/* INVOICE MODAL */}
-      {invoiceModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="w-[90%] max-w-3xl bg-white rounded-lg shadow-lg p-4 relative">
-            <button
-              onClick={() => {
-                setInvoiceModal(false);
-                URL.revokeObjectURL(invoiceBlobUrl);
-              }}
-              className="absolute text-gray-500 top-3 right-3 hover:text-gray-700"
-            >
-              ✕
-            </button>
-
-            <h2 className="mb-3 text-lg font-semibold">Invoice</h2>
-
-            {invoiceLoading ? (
-              <p className="py-10 text-center">Loading invoice...</p>
-            ) : (
-              <>
-                <iframe
-                  src={invoiceBlobUrl}
-                  className="w-full h-[500px] border rounded"
-                  title="Invoice PDF"
-                ></iframe>
-
-                <div className="flex justify-end mt-4">
-                  <a
-                    href={invoiceBlobUrl}
-                    download={`Invoice_${selectedInvoice?.orderId}.pdf`}
-                    className="px-4 py-2 text-white bg-green-600 rounded-full hover:bg-green-700"
-                  >
-                    Download Invoice
-                  </a>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

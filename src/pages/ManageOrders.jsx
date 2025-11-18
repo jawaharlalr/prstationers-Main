@@ -43,6 +43,23 @@ const getColorHex = (colorName) =>
   allColors.find((x) => x.name === colorName)?.hex || "#ccc";
 
 /* ============================================================
+   STATUS OPTIONS BASED ON DELIVERY TYPE
+============================================================ */
+const DELIVERY_STATUS = [
+  "Pending",
+  "Confirmed",
+  "Ready to Deliver",
+  "Delivered",
+];
+
+const PICKUP_STATUS = [
+  "Pending",
+  "Confirmed",
+  "Ready to Pick Up",
+  "Picked Up",
+];
+
+/* ============================================================
    MAIN COMPONENT
 ============================================================ */
 export default function ManageOrders() {
@@ -158,6 +175,7 @@ export default function ManageOrders() {
                   ₹{order.totalPrice}
                 </td>
 
+                {/* UPDATED STATUS DROPDOWN */}
                 <td className="p-3">
                   <select
                     value={order.status}
@@ -166,16 +184,19 @@ export default function ManageOrders() {
                     }
                     className="px-2 py-1 border rounded"
                   >
-                    <option>Pending</option>
-                    <option>Processing</option>
-                    <option>Shipped</option>
-                    <option>Delivered</option>
+                    {(order.deliveryType === "Home Delivery"
+                      ? DELIVERY_STATUS
+                      : PICKUP_STATUS
+                    ).map((statusOption) => (
+                      <option key={statusOption} value={statusOption}>
+                        {statusOption}
+                      </option>
+                    ))}
                   </select>
                 </td>
 
                 <td className="flex items-center gap-3 p-3">
 
-                  {/* PDF BUTTON */}
                   <button
                     onClick={() => generateInvoicePDF(order)}
                     className="px-3 py-1 text-sm text-white bg-purple-600 rounded-full hover:bg-purple-700"
@@ -183,15 +204,13 @@ export default function ManageOrders() {
                     PDF
                   </button>
 
-                  {/* ENABLE INVOICE */}
                   <button
                     onClick={() => saveInvoiceForUser(order)}
                     className="px-3 py-1 text-sm text-white bg-green-600 rounded-full hover:bg-green-700"
                   >
-                    Enable Invoice
+                    Create Invoice
                   </button>
 
-                  {/* VIEW ORDER */}
                   <button
                     onClick={() => {
                       setSelectedOrder(order);
@@ -202,7 +221,6 @@ export default function ManageOrders() {
                     View
                   </button>
 
-                  {/* QR BUTTON */}
                   <button
                     onClick={() => {
                       setQrOrder(order);
@@ -213,7 +231,6 @@ export default function ManageOrders() {
                     QR
                   </button>
 
-                  {/* DELETE */}
                   <FiTrash2
                     size={20}
                     className="text-red-500 cursor-pointer hover:text-red-700"
@@ -243,7 +260,7 @@ export default function ManageOrders() {
             </h2>
 
             {/* USER INFO */}
-            <div className="p-4 bg-gray-100 rounded">
+            <div className="p-4 mb-4 bg-gray-100 rounded">
               <p className="flex items-center gap-2">
                 <FiUser /> <strong>{selectedOrder.userName}</strong>
               </p>
@@ -252,45 +269,66 @@ export default function ManageOrders() {
               </p>
             </div>
 
-            {/* ORDER SUMMARY */}
-            <table className="w-full mt-4 text-sm">
+            {/* UPDATED ORDER SUMMARY TABLE */}
+            <table className="w-full mb-4 text-sm border border-gray-300 rounded">
               <tbody>
-                <tr><td>Status:</td><td>{selectedOrder.status}</td></tr>
-                <tr><td>Total Items:</td><td>{selectedOrder.totalItems}</td></tr>
-                <tr><td>Total Qty:</td><td>{selectedOrder.totalQty}</td></tr>
-                <tr>
-                  <td>Total Price:</td>
-                  <td className="font-bold text-green-600">
+                <tr className="border-b">
+                  <td className="w-40 px-3 py-2 font-semibold">Status:</td>
+                  <td className="px-3 py-2">{selectedOrder.status}</td>
+                </tr>
+
+                <tr className="border-b">
+                  <td className="px-3 py-2 font-semibold">Delivery Method:</td>
+                  <td className="px-3 py-2">{selectedOrder.deliveryType}</td>
+                </tr>
+
+                <tr className="border-b">
+                  <td className="px-3 py-2 font-semibold">Total Items:</td>
+                  <td className="px-3 py-2">{selectedOrder.totalItems}</td>
+                </tr>
+
+                <tr className="border-b">
+                  <td className="px-3 py-2 font-semibold">Total Quantity:</td>
+                  <td className="px-3 py-2">{selectedOrder.totalQty}</td>
+                </tr>
+
+                <tr className="border-b">
+                  <td className="px-3 py-2 font-semibold">Total Price:</td>
+                  <td className="px-3 py-2 font-bold text-green-600">
                     ₹{selectedOrder.totalPrice}
                   </td>
                 </tr>
-                <tr><td>Address:</td><td>{selectedOrder.address}</td></tr>
+
+                <tr>
+                  <td className="px-3 py-2 font-semibold">Address:</td>
+                  <td className="px-3 py-2">{selectedOrder.address}</td>
+                </tr>
               </tbody>
             </table>
 
-            {/* ITEMS TABLE */}
-            <h3 className="mt-4 text-lg font-semibold">Items</h3>
+            <h3 className="text-lg font-semibold">Items</h3>
 
-            <table className="w-full mt-2 text-sm border border-gray-200">
-              <thead className="bg-gray-100">
+            {/* UPDATED ITEMS TABLE */}
+            <table className="w-full mt-2 text-sm border border-gray-300 rounded">
+              <thead className="bg-gray-100 border-b">
                 <tr>
-                  <th>S.No</th>
-                  <th>Product</th>
-                  <th>Color</th>
-                  <th>Size</th>
-                  <th>Qty</th>
-                  <th>Price</th>
-                  <th>Total</th>
+                  <th className="p-2 text-left">S.No</th>
+                  <th className="p-2 text-left">Product</th>
+                  <th className="p-2 text-left">Color</th>
+                  <th className="p-2 text-left">Size</th>
+                  <th className="p-2 text-left">Qty</th>
+                  <th className="p-2 text-left">Price</th>
+                  <th className="p-2 text-left">Total</th>
                 </tr>
               </thead>
 
               <tbody>
                 {selectedOrder.items.map((item, i) => (
-                  <tr key={i} className="border-t">
-                    <td>{i + 1}</td>
-                    <td>{item.name}</td>
+                  <tr key={i} className="border-b">
+                    <td className="p-2">{i + 1}</td>
+                    <td className="p-2">{item.name}</td>
 
-                    <td>
+                    <td className="p-2">
                       {item.selectedOptions?.color ? (
                         <div className="flex items-center gap-2">
                           <span
@@ -308,11 +346,10 @@ export default function ManageOrders() {
                       )}
                     </td>
 
-                    <td>{item.selectedOptions?.size || "-"}</td>
-
-                    <td>{item.quantity}</td>
-                    <td>₹{item.price}</td>
-                    <td>₹{item.price * item.quantity}</td>
+                    <td className="p-2">{item.selectedOptions?.size || "-"}</td>
+                    <td className="p-2">{item.quantity}</td>
+                    <td className="p-2">₹{item.price}</td>
+                    <td className="p-2">₹{item.quantity * item.price}</td>
                   </tr>
                 ))}
               </tbody>
@@ -330,7 +367,6 @@ export default function ManageOrders() {
         </div>
       )}
 
-      {/* QR MODAL */}
       {showQR && qrOrder && (
         <QRSticker order={qrOrder} onClose={() => setShowQR(false)} />
       )}
